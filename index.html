@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Boodschappen">
+<title>Boodschappen</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #f5f5f0; --surface: #ffffff;
+  --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+  --text: #1a1a1a; --text2: #666; --text3: #999;
+  --blue: #185FA5; --blue-bg: #E6F1FB;
+  --green: #0F6E56; --red: #993C1D;
+  --red-bg: #FCEBEB; --red-border: #F09595;
+  --green-bg: #EAF3DE; --green-border: #97C459;
+  --radius: 12px; --radius-sm: 8px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.app { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+.topbar { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10; }
+.topbar-title { font-size: 17px; font-weight: 700; }
+.topbar-user { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0; }
+.nav { background: var(--surface); border-bottom: 0.5px solid var(--border); display: flex; position: sticky; top: 56px; z-index: 9; }
+.nav-btn { flex: 1; padding: 12px 4px; font-size: 12px; color: var(--text2); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-family: inherit; }
+.nav-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 700; }
+.content { padding: 16px; padding-bottom: 40px; }
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.card-label { font-size: 11px; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 5px; }
+input[type=text], input[type=number], input[type=date] { width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); outline: none; -webkit-appearance: none; appearance: none; }
+input:focus { border-color: var(--blue); background: #fff; }
+.btn { background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm); padding: 13px 16px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; font-family: inherit; }
+.btn:active { opacity: 0.8; }
+.btn-outline { background: none; color: var(--text); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 11px 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
+.btn-danger { background: #A32D2D; color: #fff; border: none; border-radius: var(--radius-sm); padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+.metric-grid { display: grid; gap: 8px; margin-bottom: 12px; }
+.g3 { grid-template-columns: repeat(3,1fr); }
+.g2 { grid-template-columns: repeat(2,1fr); }
+.metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; }
+.metric-label { font-size: 11px; color: var(--text2); margin-bottom: 3px; }
+.metric-value { font-size: 19px; font-weight: 700; }
+.period-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+.period-btn { flex: 1; padding: 8px 4px; font-size: 13px; border: 0.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text2); cursor: pointer; font-family: inherit; }
+.period-btn.active { background: var(--blue-bg); color: var(--blue); border-color: var(--blue); font-weight: 700; }
+.bar-wrap { margin-bottom: 10px; }
+.bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+.bar-track { height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.entry-row { display: flex; align-items: center; padding: 11px 0; border-bottom: 0.5px solid var(--border); gap: 10px; }
+.entry-row:last-child { border-bottom: none; }
+.entry-info { flex: 1; min-width: 0; }
+.entry-name { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entry-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.entry-amount { font-size: 15px; font-weight: 700; white-space: nowrap; }
+.del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 4px 8px; }
+.login-screen { padding: 32px 20px; }
+.user-item { display: flex; align-items: center; border: 0.5px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+.user-login-tap { flex: 1; display: flex; align-items: center; gap: 12px; padding: 14px; cursor: pointer; }
+.del-user-btn { background: none; border: none; border-left: 0.5px solid var(--border); color: var(--red); cursor: pointer; font-size: 12px; font-weight: 700; padding: 0 14px; min-height: 54px; font-family: inherit; }
+.confirm-box { background: var(--red-bg); border: 0.5px solid var(--red-border); border-radius: var(--radius-sm); padding: 13px; margin-bottom: 8px; font-size: 13px; color: #791F1F; }
+.share-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.share-row:last-child { border-bottom: none; }
+.alert { border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; margin-bottom: 12px; }
+.alert-error { background: var(--red-bg); border: 0.5px solid var(--red-border); color: #791F1F; }
+.alert-success { background: var(--green-bg); border: 0.5px solid var(--green-border); color: #27500A; }
+.empty { text-align: center; padding: 20px; color: var(--text3); font-size: 14px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 0.5px solid var(--border); }
+.settings-row:last-child { border-bottom: none; }
+.settings-label { font-size: 15px; }
+.settings-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.btn-action { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; color: var(--blue); white-space: nowrap; }
+.btn-action.danger { color: var(--red); }
+.spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-msg { text-align: center; padding: 40px; color: var(--text2); font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="app" id="app"><div class="loading-msg"><span class="spinner"></span>Verbinden...</div></div>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyAmZAp-8ZCF0d3piWf0wUYUYty8VPpTjNA",
+  authDomain: "boodschapper-36042.firebaseapp.com",
+  projectId: "boodschapper-36042",
+  storageBucket: "boodschapper-36042.firebasestorage.app",
+  messagingSenderId: "851672290751",
+  appId: "1:851672290751:web:01600f930befe766127d0a"
+});
+const db = firebase.firestore();
+const DOC = db.collection('data').doc('gedeeld');
+
+const COLORS = ['#185FA5','#0F6E56','#993C1D','#993556','#5F5E5A','#3B6D11','#854F0B','#533AB7'];
+const BGS    = ['#E6F1FB','#E1F5EE','#FAECE7','#FBEAF0','#F1EFE8','#EAF3DE','#FAEEDA','#EEEDFE'];
+
+const S = {
+  users: [], entries: [],
+  currentUser: null, tab: 'overzicht', period: 'maand',
+  error: '', success: '', loading: false,
+  form: { desc:'', amount:'', date: today() },
+  showAddUser: false, newUserName: '', confirmDeleteUser: null,
+  initialized: false,
+};
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtEur(n) { return '\u20ac\u00a0' + Number(n).toFixed(2).replace('.',','); }
+function mkInitials(name) { return name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function colorIdx(uid) { const i=S.users.findIndex(u=>u.id===uid); return (i<0?0:i)%COLORS.length; }
+
+function getWeekStart() {
+  const dt=new Date(); const day=dt.getDay()||7;
+  dt.setDate(dt.getDate()-day+1); return dt.toISOString().split('T')[0];
+}
+function filterPeriod(entries) {
+  const now=new Date(); const nm=now.getMonth(); const ny=now.getFullYear(); const ws=getWeekStart();
+  return entries.filter(e=>{
+    const d=new Date(e.date);
+    if(S.period==='week') return e.date>=ws;
+    if(S.period==='maand') return d.getMonth()===nm && d.getFullYear()===ny;
+    return d.getFullYear()===ny;
+  });
+}
+
+async function saveData() {
+  await DOC.set({ users: S.users, entries: S.entries, updatedAt: new Date().toISOString() });
+}
+
+function render() {
+  document.getElementById('app').innerHTML = !S.initialized
+    ? '<div class="loading-msg"><span class="spinner"></span>Verbinden met database...</div>'
+    : S.currentUser ? renderMain() : renderLogin();
+  bind();
+}
+
+function renderLogin() {
+  const now = new Date(); const nm=now.getMonth(); const ny=now.getFullYear();
+  const items = S.users.map((u,i) => {
+    const tot = S.entries.filter(e=>e.userId===u.id).reduce((s,e)=>s+e.amount,0);
+    const maand = S.entries.filter(e=>{ const d=new Date(e.date); return e.userId===u.id && d.getMonth()===nm && d.getFullYear()===ny; }).reduce((s,e)=>s+e.amount,0);
+    return `<div class="user-item">
+      <div class="user-login-tap" data-login="${u.id}">
+        <div class="avatar" style="width:42px;height:42px;font-size:15px;background:${BGS[i%BGS.length]};color:${COLORS[i%COLORS.length]}">${u.initials}</div>
+        <div>
+          <div style="font-size:16px;font-weight:600">${u.name}</div>
+          <div style="font-size:12px;color:var(--text2)">Deze maand: ${fmtEur(maand)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="login-screen">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:48px;margin-bottom:4px">&#128722;</div>
+    </div>
+    ${S.error?`<div class="alert alert-error">${S.error}</div>`:''}
+    ${S.success?`<div class="alert alert-success">${S.success}</div>`:''}
+    ${S.loading?`<div class="loading-msg"><span class="spinner"></span>Bezig...</div>`:''}
+    ${!S.loading?(items||'<div class="empty">Nog geen gebruikers &mdash; voeg er hieronder een toe.</div>'):''}
+    ${!S.loading&&S.users.length>0?`<div style="border-top:0.5px solid var(--border);margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 4px 8px">
+        <div style="font-size:13px;color:var(--text2)">Totaal deze maand</div>
+        <div style="font-size:17px;font-weight:700">${(()=>{const now=new Date();const nm=now.getMonth();const ny=now.getFullYear();return fmtEur(S.entries.filter(e=>{const d=new Date(e.date);return d.getMonth()===nm&&d.getFullYear()===ny;}).reduce((s,e)=>s+e.amount,0));})()}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 12px">
+        <div style="font-size:13px;color:var(--text2)">Gemiddeld per dag</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text2)">${(()=>{const now=new Date();const nm=now.getMonth();const ny=now.getFullYear();const dagTot=S.entries.filter(e=>{const d=new Date(e.date);return d.getMonth()===nm&&d.getFullYear()===ny;}).reduce((s,e)=>s+e.amount,0);const dagenVerstreken=now.getDate();return fmtEur(dagTot/dagenVerstreken);})()}</div>
+      </div>
+    </div>`:''}
+    <div style="border-top:0.5px solid var(--border);margin:16px 0"></div>
+    ${S.showAddUser?`
+      <div class="form-row"><input type="text" id="nu-name" placeholder="Naam" value="${S.newUserName}" autocomplete="off"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="save-user">Toevoegen</button>
+        <button class="btn-outline" id="cancel-user" style="flex:1">Annuleren</button>
+      </div>`:`<button class="btn-outline" id="add-user-btn" style="width:100%">+ Nieuwe gebruiker</button>`}
+  </div>`;
+}
+
+function renderMain() {
+  const u=S.users.find(x=>x.id===S.currentUser); if(!u){S.currentUser=null;return renderLogin();}
+  const ci=colorIdx(u.id);
+  return `
+    <div class="topbar">
+      <div class="topbar-title">&#128722; Boodschappen</div>
+      <div class="topbar-user" id="logout-btn">
+        <div class="avatar" style="width:32px;height:32px;font-size:12px;background:${BGS[ci]};color:${COLORS[ci]}">${u.initials}</div>
+        <span style="font-size:14px;font-weight:600">${u.name}</span>
+      </div>
+    </div>
+    <div class="nav">
+      <button class="nav-btn ${S.tab==='overzicht'?'active':''}" data-tab="overzicht">Overzicht</button>
+      <button class="nav-btn ${S.tab==='invoer'?'active':''}" data-tab="invoer">Invoer</button>
+      <button class="nav-btn ${S.tab==='aandeel'?'active':''}" data-tab="aandeel">Aandeel</button>
+      <button class="nav-btn ${S.tab==='mijn'?'active':''}" data-tab="mijn">Mijn bonnen</button>
+      <button class="nav-btn ${S.tab==='instellingen'?'active':''}" data-tab="instellingen">&#9881;</button>
+    </div>
+    <div class="content">
+      ${S.error?`<div class="alert alert-error">${S.error}</div>`:''}
+      ${S.success?`<div class="alert alert-success">${S.success}</div>`:''}
+      ${S.loading?`<div class="loading-msg"><span class="spinner"></span>Bezig...</div>`:''}
+      ${!S.loading&&S.tab==='overzicht'?renderOverzicht():''}
+      ${!S.loading&&S.tab==='invoer'?renderInvoer():''}
+      ${!S.loading&&S.tab==='aandeel'?renderAandeel():''}
+      ${!S.loading&&S.tab==='mijn'?renderMijn():''}
+      ${!S.loading&&S.tab==='instellingen'?renderInstellingen():''}
+    </div>`;
+}
+
+function periodToggle() {
+  return `<div class="period-toggle">
+    <button class="period-btn ${S.period==='week'?'active':''}" data-period="week">Deze week</button>
+    <button class="period-btn ${S.period==='maand'?'active':''}" data-period="maand">Deze maand</button>
+    <button class="period-btn ${S.period==='jaar'?'active':''}" data-period="jaar">Dit jaar</button>
+  </div>`;
+}
+
+function renderOverzicht() {
+  const fil=filterPeriod(S.entries);
+  const total=fil.reduce((s,e)=>s+e.amount,0);
+  const mine=fil.filter(e=>e.userId===S.currentUser).reduce((s,e)=>s+e.amount,0);
+  const pct=total>0?Math.round(mine/total*100):0;
+  const byUser={}; S.users.forEach(u=>byUser[u.id]=0);
+  fil.forEach(e=>{byUser[e.userId]=(byUser[e.userId]||0)+e.amount;});
+  const bars=S.users.map((u,i)=>{
+    const a=byUser[u.id]||0; const p=total>0?(a/total*100):0;
+    return `<div class="bar-wrap"><div class="bar-label"><span>${u.name}</span><span style="color:var(--text2)">${fmtEur(a)}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${p.toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div></div></div>`;
+  }).join('');
+  const recent=[...S.entries].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+  const rows=recent.map(e=>{
+    const u=S.users.find(x=>x.id===e.userId)||{initials:'?',name:'?'}; const ci=colorIdx(e.userId);
+    return `<div class="entry-row">
+      <div class="avatar" style="width:34px;height:34px;font-size:12px;background:${BGS[ci]};color:${COLORS[ci]}">${u.initials}</div>
+      <div class="entry-info"><div class="entry-name">${e.desc}</div><div class="entry-meta">${e.date} &middot; ${u.name}</div></div>
+      <div class="entry-amount">${fmtEur(e.amount)}</div></div>`;
+  }).join('');
+  return `${periodToggle()}
+    <div class="metric-grid g3">
+      <div class="metric"><div class="metric-label">Totaal</div><div class="metric-value">${fmtEur(total)}</div></div>
+      <div class="metric"><div class="metric-label">Mijn deel</div><div class="metric-value">${fmtEur(mine)}</div></div>
+      <div class="metric"><div class="metric-label">Mijn %</div><div class="metric-value">${pct}%</div></div>
+    </div>
+    <div class="card"><div class="card-label">Per persoon</div>${bars||'<div class="empty">Nog geen data</div>'}</div>
+    <div class="card"><div class="card-label">Recente boodschappen</div>${rows||'<div class="empty">Nog niets ingevoerd</div>'}</div>`;
+}
+
+function renderInvoer() {
+  return `<div class="card">
+    <div class="card-label">Boodschappen toevoegen</div>
+    <div class="form-row"><label class="form-label">Datum</label><input type="date" id="f-date" value="${S.form.date}"></div>
+    <div class="form-row"><label class="form-label">Omschrijving</label><input type="text" id="f-desc" placeholder="bijv. Albert Heijn" value="${S.form.desc}" autocomplete="off"></div>
+    <div class="form-row"><label class="form-label">Bedrag (&euro;)</label><input type="text" id="f-amount" placeholder="0,00" inputmode="decimal" value="${S.form.amount}"></div>
+    <button class="btn" id="save-entry">Opslaan</button>
+  </div>`;
+}
+
+function renderAandeel() {
+  const fil=filterPeriod(S.entries);
+  const total=fil.reduce((s,e)=>s+e.amount,0);
+  const fair=S.users.length>0?total/S.users.length:0;
+  const byUser={}; S.users.forEach(u=>byUser[u.id]=0);
+  fil.forEach(e=>{byUser[e.userId]=(byUser[e.userId]||0)+e.amount;});
+  const rows=S.users.map((u,i)=>{
+    const paid=byUser[u.id]||0; const pct=total>0?Math.round(paid/total*100):0;
+    const diff=paid-fair; const pos=diff>=0;
+    return `<div class="share-row">
+      <div class="avatar" style="width:34px;height:34px;font-size:12px;background:${BGS[i%BGS.length]};color:${COLORS[i%COLORS.length]}">${u.initials}</div>
+      <div style="flex:1;font-size:15px">${u.name}</div>
+      <div style="font-size:12px;color:var(--text2);width:30px;text-align:right">${pct}%</div>
+      <div style="font-size:15px;font-weight:700;width:80px;text-align:right">${fmtEur(paid)}</div>
+      <div style="font-size:12px;font-weight:700;width:68px;text-align:right;color:${pos?'var(--green)':'var(--red)'}">${pos?'+':''}${fmtEur(diff)}</div>
+    </div>`;
+  }).join('');
+  return `${periodToggle()}
+    <div class="metric-grid g2">
+      <div class="metric"><div class="metric-label">Totaal gezamenlijk</div><div class="metric-value">${fmtEur(total)}</div></div>
+      <div class="metric"><div class="metric-label">Eerlijk aandeel elk</div><div class="metric-value">${fmtEur(fair)}</div></div>
+    </div>
+    <div class="card"><div class="card-label">Aandeel per persoon</div>${rows||'<div class="empty">Geen gebruikers</div>'}</div>
+    <div style="font-size:12px;color:var(--text3);padding:2px 4px">Groen = meer betaald &middot; Rood = minder dan eerlijk aandeel</div>`;
+}
+
+function renderMijn() {
+  const mine=filterPeriod(S.entries.filter(e=>e.userId===S.currentUser));
+  const sorted=[...mine].sort((a,b)=>b.date.localeCompare(a.date));
+  const total=sorted.reduce((s,e)=>s+e.amount,0);
+  const rows=sorted.map(e=>`<div class="entry-row">
+    <div class="entry-info"><div class="entry-name">${e.desc}</div><div class="entry-meta">${e.date}</div></div>
+    <div style="display:flex;align-items:center;gap:4px">
+      <div class="entry-amount">${fmtEur(e.amount)}</div>
+      <button class="del-btn" data-del="${e.id}">&times;</button>
+    </div></div>`).join('');
+  return `${periodToggle()}
+    <div class="metric-grid g2">
+      <div class="metric"><div class="metric-label">Mijn totaal</div><div class="metric-value">${fmtEur(total)}</div></div>
+      <div class="metric"><div class="metric-label">Aantal bonnen</div><div class="metric-value">${sorted.length}</div></div>
+    </div>
+    <div class="card"><div class="card-label">Mijn boodschappen</div>${rows||'<div class="empty">Nog niets in deze periode</div>'}</div>`;
+}
+
+function renderInstellingen() {
+  const totaalAlles=S.entries.reduce((s,e)=>s+e.amount,0);
+  const userRows = S.users.map((u,i) => {
+    const isc = S.confirmDeleteUser===u.id;
+    return `${isc?`<div class="confirm-box">Weet je zeker dat je <strong>${u.name}</strong> wilt verwijderen? Alle boodschappen worden ook verwijderd.
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-danger" id="cfd-${u.id}">Ja, verwijderen</button>
+        <button class="btn-outline" id="cfc-${u.id}" style="flex:1">Annuleren</button>
+      </div></div>`:''}
+    <div class="settings-row">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" style="width:32px;height:32px;font-size:12px;background:${BGS[i%BGS.length]};color:${COLORS[i%COLORS.length]}">${u.initials}</div>
+        <div class="settings-label">${u.name}</div>
+      </div>
+      <button class="btn-action danger" data-dlu="${u.id}">Verwijder</button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="card">
+      <div class="card-label">Gebruikers beheren</div>
+      ${userRows||'<div class="empty">Geen gebruikers</div>'}
+    </div>
+    <div class="card">
+      <div class="card-label">Gegevens</div>
+      <div class="settings-row">
+        <div><div class="settings-label">Gebruikers</div></div>
+        <span style="font-size:16px;font-weight:700;color:var(--text2)">${S.users.length}</span>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Boodschappenbonnen</div><div class="settings-sub">Alle tijd, alle gebruikers</div></div>
+        <span style="font-size:16px;font-weight:700;color:var(--text2)">${S.entries.length}</span>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Totaal ooit uitgegeven</div></div>
+        <span style="font-size:15px;font-weight:700">${fmtEur(totaalAlles)}</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Export</div>
+      <div class="settings-row">
+        <div><div class="settings-label">Exporteren als CSV</div><div class="settings-sub">Openen in Excel of Numbers</div></div>
+        <button class="btn-action" id="export-csv">CSV</button>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--red-border)">
+      <div class="card-label" style="color:var(--red)">Gevaarlijke zone</div>
+      <div class="settings-row">
+        <div><div class="settings-label">Alle data wissen</div><div class="settings-sub">Verwijdert alles permanent</div></div>
+        <button class="btn-action danger" id="wipe-data">Wissen</button>
+      </div>
+    </div>`;
+}
+
+function exportCSV() {
+  const lines=['Datum,Persoon,Omschrijving,Bedrag'];
+  [...S.entries].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+    const u=S.users.find(x=>x.id===e.userId);
+    lines.push(`${e.date},"${u?u.name:'Onbekend'}","${e.desc}",${Number(e.amount).toFixed(2).replace('.',',')}`);
+  });
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='boodschappen-'+today()+'.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
+function bind() {
+  document.querySelectorAll('.user-login-tap[data-login]').forEach(el=>{
+    el.onclick=()=>{ S.currentUser=el.dataset.login; S.tab='overzicht'; S.error=''; S.confirmDeleteUser=null; render(); };
+  });
+  document.querySelectorAll('[data-dlu]').forEach(el=>{
+    el.onclick=()=>{ const uid=el.dataset.dlu; S.confirmDeleteUser=S.confirmDeleteUser===uid?null:uid; render(); };
+  });
+  S.users.forEach(u=>{
+    const cfd=document.getElementById('cfd-'+u.id);
+    if(cfd) cfd.onclick=async()=>{
+      const naam=u.name;
+      S.users=S.users.filter(x=>x.id!==u.id); S.entries=S.entries.filter(e=>e.userId!==u.id);
+      S.loading=true; render(); await saveData(); S.loading=false;
+      S.confirmDeleteUser=null; S.success=naam+' verwijderd.'; render();
+      setTimeout(()=>{S.success='';render();},2000);
+    };
+    const cfc=document.getElementById('cfc-'+u.id);
+    if(cfc) cfc.onclick=()=>{ S.confirmDeleteUser=null; render(); };
+  });
+  const logoutBtn=document.getElementById('logout-btn');
+  if(logoutBtn) logoutBtn.onclick=()=>{ S.currentUser=null; S.error=''; render(); };
+  document.querySelectorAll('[data-tab]').forEach(el=>{ el.onclick=()=>{ S.tab=el.dataset.tab; S.error=''; S.success=''; render(); }; });
+  document.querySelectorAll('[data-period]').forEach(el=>{ el.onclick=()=>{ S.period=el.dataset.period; render(); }; });
+  const addBtn=document.getElementById('add-user-btn');
+  if(addBtn) addBtn.onclick=()=>{ S.showAddUser=true; render(); };
+  const cancelUser=document.getElementById('cancel-user');
+  if(cancelUser) cancelUser.onclick=()=>{ S.showAddUser=false; S.newUserName=''; render(); };
+  const nuInput=document.getElementById('nu-name');
+  if(nuInput){ nuInput.oninput=e=>{ S.newUserName=e.target.value; }; nuInput.focus(); }
+  const saveUser=document.getElementById('save-user');
+  if(saveUser) saveUser.onclick=async()=>{
+    const n=(document.getElementById('nu-name')?.value||'').trim(); if(!n) return;
+    S.users.push({ id: Date.now().toString(), name:n, initials:mkInitials(n) });
+    S.loading=true; render(); await saveData(); S.loading=false;
+    S.showAddUser=false; S.newUserName=''; render();
+  };
+  const saveEntry=document.getElementById('save-entry');
+  if(saveEntry) saveEntry.onclick=async()=>{
+    const desc=document.getElementById('f-desc')?.value?.trim();
+    const amount=document.getElementById('f-amount')?.value;
+    const date=document.getElementById('f-date')?.value;
+    const amountNum=parseFloat(amount.replace(',','.')); if(!desc||!amount||amountNum<=0||!date){ S.error='Vul alle velden in.'; render(); return; }
+    S.entries.push({ id: Date.now().toString()+Math.random(), userId:S.currentUser, date, desc, amount:amountNum });
+    S.loading=true; S.error=''; render(); await saveData(); S.loading=false;
+    S.form={desc:'',amount:'',date:today()};
+    S.success='Opgeslagen!'; S.tab='overzicht'; render();
+    setTimeout(()=>{ S.success=''; render(); },2000);
+  };
+  const fDate=document.getElementById('f-date');
+  const fDesc=document.getElementById('f-desc');
+  const fAmt=document.getElementById('f-amount');
+  if(fDate) fDate.onchange=e=>S.form.date=e.target.value;
+  if(fDesc) fDesc.oninput=e=>S.form.desc=e.target.value;
+  if(fAmt) fAmt.oninput=e=>S.form.amount=e.target.value;
+  document.querySelectorAll('[data-del]').forEach(el=>{
+    el.onclick=async()=>{
+      S.entries=S.entries.filter(e=>e.id!==el.dataset.del);
+      S.loading=true; render(); await saveData(); S.loading=false; render();
+    };
+  });
+  const exportCsvBtn=document.getElementById('export-csv');
+  if(exportCsvBtn) exportCsvBtn.onclick=exportCSV;
+  const wipeBtn=document.getElementById('wipe-data');
+  if(wipeBtn) wipeBtn.onclick=async()=>{
+    if(confirm('Weet je het zeker? Alle data wordt permanent verwijderd.')){
+      S.users=[]; S.entries=[]; S.loading=true; render();
+      await saveData(); S.loading=false; S.currentUser=null; render();
+    }
+  };
+}
+
+DOC.onSnapshot(doc=>{
+  if(doc.exists){ const d=doc.data(); S.users=d.users||[]; S.entries=d.entries||[]; }
+  else { S.users=[]; S.entries=[]; }
+  S.initialized=true; render();
+}, err=>{ S.error='Verbindingsfout: '+err.message; S.initialized=true; render(); });
+</script>
+</body>
+</html>
